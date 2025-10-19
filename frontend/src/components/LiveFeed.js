@@ -1,17 +1,119 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaVideo, FaVideoSlash } from 'react-icons/fa';
 import './LiveFeed.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const USE_BROWSER_CAMERA = true; // Toggle: true for WebRTC, false for server camera
 
 function LiveFeed({ isDetecting }) {
   const imgRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const [cameraError, setCameraError] = useState(null);
+  const [processedFrame, setProcessedFrame] = useState(null);
 
+  // Request camera access from browser
   useEffect(() => {
-    // Optimize image loading when detection starts
-    if (isDetecting && imgRef.current) {
-      // Preload image to reduce initial lag
+    if (USE_BROWSER_CAMERA && isDetecting) {
+      startBrowserCamera();
+    } else if (!isDetecting && streamRef.current) {
+      stopBrowserCamera();
+    }
+
+    return () => {
+      stopBrowserCamera();
+    };
+  }, [isDetecting]);
+
+  // Send frames to backend for processing
+  useEffect(() => {
+    if (USE_BROWSER_CAMERA && isDetecting && videoRef.current) {
+      const interval = setInterval(() => {
+        captureAndSendFrame();
+      }, 100); // Send 10 frames per second
+
+      return () => clearInterval(interval);
+    }
+  }, [isDetecting]);
+
+  const startBrowserCamera = async () => {
+    try {
+      console.log('Requesting camera access...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        }
+      });
+      
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      console.log('✅ Camera access granted!');
+      setCameraError(null);
+    } catch (err) {
+      console.error('Camera access denied:', err);
+      setCameraError(`Camera Error: ${err.message}`);
+    }
+  };
+
+  const stopBrowserCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const captureAndSendFrame = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    // Draw current video frame to canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+
+      try {
+        // Send frame to backend
+        const formData = new FormData();
+        formData.append('frame', blob, 'frame.jpg');
+
+        const response = await fetch(`${API_BASE}/api/process-frame`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          setProcessedFrame(url);
+        }
+      } catch (err) {
+        console.error('Error sending frame:', err);
+      }
+    }, 'image/jpeg', 0.8);
+  };
+
+  // Fallback to original server camera method
+  useEffect(() => {
+    if (!USE_BROWSER_CAMERA && isDetecting && imgRef.current) {
       imgRef.current.decode()
         .then(() => {
           console.log('Video feed loaded');
@@ -31,7 +133,7 @@ function LiveFeed({ isDetecting }) {
       <div className="feed-header">
         <h2>
           {isDetecting ? <FaVideo className="icon-pulse" /> : <FaVideoSlash />}
-          <span>Live Feed</span>
+          <span>Live Feed {USE_BROWSER_CAMERA && '(Browser Camera)'}</span>
         </h2>
         {isDetecting && (
           <motion.span
@@ -50,22 +152,79 @@ function LiveFeed({ isDetecting }) {
       </div>
 
       <div className="feed-container">
+        {cameraError && (
+          <div className="camera-error">
+            <p>{cameraError}</p>
+            <small>Please allow camera access in your browser</small>
+          </div>
+        )}
+
         {isDetecting ? (
-          <motion.img
-            ref={imgRef}
-            src={`${API_BASE}/api/video-feed?t=${Date.now()}`}
-            alt="Live Detection Feed"
-            className="feed-video"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            loading="eager"
-            decoding="async"
-            style={{
-              imageRendering: 'auto',
-              willChange: 'auto'
-            }}
-          />
+          USE_BROWSER_CAMERA ? (
+            // WebRTC Mode: Show browser camera with processed overlay
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              {/* Hidden video element for camera capture */}
+              <video
+                ref={videoRef}
+                style={{ display: 'none' }}
+                autoPlay
+                playsInline
+              />
+              {/* Hidden canvas for frame processing */}
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+              
+              {/* Display processed frame from backend */}
+              {processedFrame ? (
+                <motion.img
+                  src={processedFrame}
+                  alt="Processed Detection Feed"
+                  className="feed-video"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
+              ) : (
+                <div className="feed-placeholder">
+                  <motion.div
+                    className="placeholder-icon"
+                    animate={{
+                      scale: [1, 1.1, 1],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                    }}
+                  >
+                    <FaVideo />
+                  </motion.div>
+                  <h3>Starting Camera...</h3>
+                  <p>Please allow camera access</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Server Camera Mode: Original MJPEG stream
+            <motion.img
+              ref={imgRef}
+              src={`${API_BASE}/api/video-feed?t=${Date.now()}`}
+              alt="Live Detection Feed"
+              className="feed-video"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              loading="eager"
+              decoding="async"
+              style={{
+                imageRendering: 'auto',
+                willChange: 'auto'
+              }}
+            />
+          )
         ) : (
           <motion.div
             className="feed-placeholder"
@@ -86,6 +245,11 @@ function LiveFeed({ isDetecting }) {
             </motion.div>
             <h3>Detection Stopped</h3>
             <p>Click Start to begin object detection</p>
+            {USE_BROWSER_CAMERA && (
+              <small style={{ marginTop: '10px', opacity: 0.7 }}>
+                📹 Will use your browser camera
+              </small>
+            )}
           </motion.div>
         )}
       </div>

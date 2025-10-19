@@ -560,6 +560,89 @@ def api_save_frame():
         logging.exception("Failed to save frame")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/process-frame", methods=["POST"])
+def api_process_frame():
+    """
+    Process a single frame sent from the frontend browser camera.
+    This enables WebRTC-style detection where the browser captures the camera
+    and sends frames to the backend for processing.
+    """
+    global current_metrics
+    
+    try:
+        # Check if model is loaded
+        if model is None:
+            return jsonify({"error": "Model not loaded"}), 500
+        
+        # Get uploaded frame
+        if 'frame' not in request.files:
+            return jsonify({"error": "No frame provided"}), 400
+        
+        file = request.files['frame']
+        
+        # Read image data
+        file_bytes = np.frombuffer(file.read(), np.uint8)
+        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return jsonify({"error": "Invalid image data"}), 400
+        
+        # Process frame with YOLO
+        conf_thresh = current_metrics.get("confidence", 0.15)
+        results = model.predict(frame, conf=conf_thresh, verbose=False)
+        
+        # Draw detections on frame
+        out_frame = frame.copy()
+        detections_count = defaultdict(int)
+        
+        for result in results:
+            boxes = result.boxes
+            if boxes is None or len(boxes) == 0:
+                continue
+            
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                conf = float(box.conf[0])
+                cls_id = int(box.cls[0])
+                class_name = model.names[cls_id]
+                
+                detections_count[class_name] += 1
+                
+                # Draw bounding box and label
+                color = get_color_for_class(class_name)
+                cv2.rectangle(out_frame, (x1, y1), (x2, y2), color, 2)
+                
+                label = f"{class_name} {conf:.2f}"
+                (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
+                ly1 = max(y1 - th - 10, 0)
+                ly2 = y1
+                lx1 = x1
+                lx2 = x1 + tw + 6
+                cv2.rectangle(out_frame, (lx1, ly1), (lx2, ly2), color, -1)
+                cv2.putText(out_frame, label, (x1 + 3, y1 - 5),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+        
+        # Update metrics
+        current_metrics["object_count"] = sum(detections_count.values())
+        current_metrics["detections"] = dict(detections_count)
+        current_metrics["frames_processed"] += 1
+        
+        # Encode processed frame as JPEG
+        ret, buffer = cv2.imencode('.jpg', out_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if not ret:
+            return jsonify({"error": "Failed to encode frame"}), 500
+        
+        # Return processed frame
+        return Response(
+            buffer.tobytes(),
+            mimetype='image/jpeg',
+            headers={'Cache-Control': 'no-cache'}
+        )
+        
+    except Exception as e:
+        logging.exception("Error processing frame")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/saved-frames", methods=["GET"])
 def api_saved_frames():
     frames = []
