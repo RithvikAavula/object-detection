@@ -1,8 +1,15 @@
 flask==3.0.0
 flask-cors==4.0.0
 opencv-python-headless==4.8.1.78
-ultralytics==8.0.196
 numpy==1.26.4
 Pillow==10.0.0
 gunicorn==21.2.0
 python-multipart==0.0.6
+
+# Install CPU-only PyTorch first (much smaller, no CUDA dependencies)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
+
+# Install ultralytics after PyTorch to prevent CUDA version installation
+ultralytics==8.0.196
