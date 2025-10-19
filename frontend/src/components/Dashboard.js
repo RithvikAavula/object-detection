@@ -63,7 +63,21 @@ function Dashboard() {
       setIsDetecting(true);
     } catch (error) {
       console.error('Error starting detection:', error);
-      alert('Failed to start detection');
+      
+      // Show detailed error message if available
+      if (error.response?.data?.error) {
+        const errorMsg = error.response.data.error;
+        const details = error.response.data.details;
+        const suggestion = error.response.data.suggestion;
+        
+        let message = `Failed to start detection:\n\n${errorMsg}`;
+        if (details) message += `\n\n${details}`;
+        if (suggestion) message += `\n\n${suggestion}`;
+        
+        alert(message);
+      } else {
+        alert('Failed to start detection. Please check if the backend server is running.');
+      }
     } finally {
       setLoading(false);
     }

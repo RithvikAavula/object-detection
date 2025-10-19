@@ -476,12 +476,18 @@ def api_start():
     if detection_active:
         return jsonify({"status": "already_running"}), 200
     if model is None:
-        return jsonify({"error": "model not loaded"}), 500
+        return jsonify({
+            "error": "Model not loaded. The YOLO model failed to initialize on this server."
+        }), 500
 
     # ensure camera open
     ok = open_camera(camera_index)
     if not ok:
-        return jsonify({"error": "could not open camera"}), 500
+        return jsonify({
+            "error": "Camera not available",
+            "details": "This server doesn't have a physical camera. Camera-based detection only works when running the backend locally with a webcam.",
+            "suggestion": "Run 'python app.py' locally in the backend folder to use camera features."
+        }), 503  # 503 Service Unavailable is more appropriate than 500
 
     detection_active = True
     detection_thread = threading.Thread(target=detection_loop, kwargs={"skip_frames": 0}, daemon=True)
