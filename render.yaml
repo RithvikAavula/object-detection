@@ -10,8 +10,9 @@ services:
     region: oregon
     plan: free
     branch: main
-    buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && gunicorn app:app --bind 0.0.0.0:$PORT"
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -28,8 +29,9 @@ services:
     region: oregon
     plan: free
     branch: main
-    buildCommand: "cd frontend && npm install && npm run build"
-    staticPublishPath: ./frontend/build
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: ./build
     routes:
       - type: rewrite
         source: /*
