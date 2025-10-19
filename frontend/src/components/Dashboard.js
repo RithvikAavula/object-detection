@@ -10,6 +10,7 @@ import './Dashboard.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const API_URL = `${API_BASE}/api`;
+const USE_BROWSER_CAMERA = true; // Must match LiveFeed.js setting
 
 function Dashboard() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -59,8 +60,15 @@ function Dashboard() {
   const handleStart = async () => {
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/start`);
-      setIsDetecting(true);
+      // If using browser camera, just toggle state (no backend camera needed)
+      if (USE_BROWSER_CAMERA) {
+        console.log('Using browser camera - no backend camera start needed');
+        setIsDetecting(true);
+      } else {
+        // Server camera mode - call backend to start camera
+        await axios.post(`${API_URL}/start`);
+        setIsDetecting(true);
+      }
     } catch (error) {
       console.error('Error starting detection:', error);
       
@@ -87,8 +95,15 @@ function Dashboard() {
   const handleStop = async () => {
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/stop`);
-      setIsDetecting(false);
+      // If using browser camera, just toggle state
+      if (USE_BROWSER_CAMERA) {
+        console.log('Using browser camera - no backend camera stop needed');
+        setIsDetecting(false);
+      } else {
+        // Server camera mode - call backend to stop camera
+        await axios.post(`${API_URL}/stop`);
+        setIsDetecting(false);
+      }
     } catch (error) {
       console.error('Error stopping detection:', error);
       alert('Failed to stop detection');
