@@ -209,18 +209,12 @@ function LiveFeed({ isDetecting }) {
           USE_BROWSER_CAMERA ? (
             // WebRTC Mode: Show browser camera with processed overlay
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {/* Hidden video element for camera capture */}
-              <video
-                ref={videoRef}
-                style={{ display: 'none' }}
-                autoPlay
-                playsInline
-              />
               {/* Hidden canvas for frame processing */}
               <canvas ref={canvasRef} style={{ display: 'none' }} />
               
-              {/* Display processed frame from backend */}
+              {/* Display processed frame from backend OR live camera feed */}
               {processedFrame ? (
+                // Show processed frame with detections
                 <motion.img
                   src={processedFrame}
                   alt="Processed Detection Feed"
@@ -234,7 +228,22 @@ function LiveFeed({ isDetecting }) {
                     objectFit: 'contain'
                   }}
                 />
+              ) : cameraReady ? (
+                // Show live camera feed while waiting for processed frames
+                <video
+                  ref={videoRef}
+                  className="feed-video"
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
               ) : (
+                // Show loading state
                 <div className="feed-placeholder">
                   <motion.div
                     className="placeholder-icon"
