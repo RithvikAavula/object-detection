@@ -586,6 +586,25 @@ def api_delete_frame(filename):
         logging.exception("Error deleting file")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/", methods=["GET"])
+def root():
+    """Root endpoint - API information"""
+    return jsonify({
+        "name": "Object Detection API",
+        "status": "running",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/api/health",
+            "metrics": "/api/metrics",
+            "start_detection": "/api/start",
+            "stop_detection": "/api/stop",
+            "video_feed": "/api/video-feed",
+            "saved_frames": "/api/saved-frames"
+        },
+        "frontend": "https://object-detection-2-9oo8.onrender.com",
+        "documentation": "See frontend for full interface"
+    })
+
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
