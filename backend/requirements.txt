@@ -1,10 +1,11 @@
-setuptools
+setuptools>=68.0.0
 wheel
+pip>=25.2
 flask==3.0.0
 flask-cors==4.0.0
-opencv-python-headless==4.8.1.78
+opencv-python-headless==4.7.0.72
 ultralytics==8.0.196
-numpy==1.24.3
+numpy==1.23.5
 Pillow==10.0.0
 gunicorn==21.2.0
 python-multipart==0.0.6
