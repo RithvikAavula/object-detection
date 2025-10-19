@@ -44,7 +44,27 @@ A **complete, production-ready** AI object detection system featuring:
 
 ## 🚀 Quick Start
 
-### 1. Install (One Command)
+> **⚠️ IMPORTANT: Camera Support**
+> - **Cloud Deployment** (Render): ❌ No camera access (cloud servers don't have webcams)
+> - **Local Development**: ✅ Full camera support
+> - For camera features, run backend locally: `.\start_with_camera.bat`
+
+### Option A: Local Development (With Camera) ⭐ RECOMMENDED
+
+**One-Click Start:**
+```bash
+.\start_with_camera.bat
+```
+This will:
+- Install all dependencies
+- Start backend on http://localhost:5000
+- Start frontend on http://localhost:3000
+- Automatically open in your browser
+- ✅ **Full camera access for live detection**
+
+### Option B: Manual Setup
+
+#### 1. Install (One Command)
 ```bash
 .\setup.bat
 ```
@@ -566,14 +586,45 @@ A: No! Runs fine on CPU at 20-30 FPS.
 **Q: What objects can it detect?**  
 A: 80 COCO classes (people, cars, animals, food, etc.)
 
+**Q: Can I deploy to cloud (Render/Heroku)?**  
+A: Yes for API, but ⚠️ **no camera access** on cloud servers. See [CAMERA_DEPLOYMENT_OPTIONS.md](CAMERA_DEPLOYMENT_OPTIONS.md) for alternatives.
+
+**Q: How do I use my camera with cloud deployment?**  
+A: Run backend locally + deployed frontend. See [LOCAL_BACKEND_GUIDE.md](LOCAL_BACKEND_GUIDE.md)
+
 **Q: Can I use my phone camera?**  
-A: Not directly, but you can use IP camera apps.
+A: Not directly on cloud, but you can use IP camera apps or WebRTC (advanced).
 
 **Q: How accurate is it?**  
 A: Very accurate! YOLOv8 is state-of-the-art.
 
 **Q: Can I customize the UI?**  
 A: Yes! All components are in `frontend/src/components/`
+
+---
+
+## 🌐 Deployment
+
+### Current Deployment Status
+
+- ✅ **Frontend**: https://object-detection-2-9oo8.onrender.com/ (Working)
+- ✅ **Backend API**: https://object-detection-rirh.onrender.com (Working)
+- ❌ **Camera**: Not available on Render (cloud servers have no webcams)
+
+### Deployment Options
+
+| Option | Camera | Cost | Setup Time |
+|--------|--------|------|------------|
+| **Local** ⭐ | ✅ Yes | Free | 5 min |
+| **Render (API Only)** | ❌ No | Free | 10 min |
+| **Local Backend + Cloud Frontend** | ✅ Yes | Free | 10 min |
+| **Raspberry Pi** | ✅ Yes | $50+ | 1 hour |
+| **WebRTC Stream** | ✅ Yes | Free | Complex |
+
+**See detailed guides:**
+- [CAMERA_DEPLOYMENT_OPTIONS.md](CAMERA_DEPLOYMENT_OPTIONS.md) - All deployment options
+- [LOCAL_BACKEND_GUIDE.md](LOCAL_BACKEND_GUIDE.md) - Run backend locally with camera
+- [DEPLOYMENT_COMPLETE.md](DEPLOYMENT_COMPLETE.md) - Cloud deployment docs
 
 ---
 
