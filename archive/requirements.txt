@@ -1,0 +1,14 @@
+# Core requirements for object detection
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Optional but recommended for better performance
+# opencv-contrib-python>=4.8.0  # Includes extra modules
+
+# For C++ module compilation (optional)
+# pybind11>=2.11.0
+
+# Additional utilities
+Pillow>=10.0.0
+matplotlib>=3.7.0

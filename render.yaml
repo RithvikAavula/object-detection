@@ -1,0 +1,46 @@
+# Render.com Deployment Configuration
+# This file deploys both backend (Flask API) and frontend (React)
+
+services:
+  # Backend Flask API Service
+  - type: web
+    name: object-detection-backend
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && gunicorn app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        value: 5000
+      - key: FLASK_ENV
+        value: production
+    healthCheckPath: /api/health
+    
+  # Frontend React Service
+  - type: web
+    name: object-detection-frontend
+    env: static
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: ./frontend/build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: REACT_APP_API_URL
+        generateValue: true
+        # This will be set to your backend service URL automatically
+
+# Note: 
+# 1. Make sure to install gunicorn in your backend/requirements.txt
+# 2. Set REACT_APP_API_URL in frontend to point to your backend URL
+# 3. Update CORS settings in backend to allow your frontend domain
