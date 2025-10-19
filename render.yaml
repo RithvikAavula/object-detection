@@ -10,13 +10,14 @@ services:
     region: oregon
     plan: free
     branch: main
-    buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && gunicorn app:app --bind 0.0.0.0:$PORT"
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
       - key: PORT
-        value: 5000
+        sync: false
       - key: FLASK_ENV
         value: production
     healthCheckPath: /api/health
