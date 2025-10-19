@@ -139,7 +139,24 @@ def load_model(weights_path: str = "yolov8m.pt", prefer_gpu: bool = True):
     global model, device
     try:
         logging.info("Loading YOLO model...")
-        model = YOLO(weights_path)
+        
+        # Add safe globals for PyTorch 2.6+ compatibility
+        import torch.serialization
+        try:
+            # Allow ultralytics classes for torch.load
+            from ultralytics.nn.tasks import DetectionModel
+            torch.serialization.add_safe_globals([DetectionModel])
+        except Exception as safe_global_err:
+            logging.warning(f"Could not add safe globals (non-critical): {safe_global_err}")
+        
+        # Try loading model
+        try:
+            model = YOLO(weights_path)
+        except Exception as load_err:
+            # Fallback: Try downloading fresh weights if local file fails
+            logging.warning(f"Failed to load local weights, trying to download: {load_err}")
+            model = YOLO("yolov8m.pt")  # This will auto-download if needed
+        
         # choose device
         if prefer_gpu and torch.cuda.is_available():
             device = "cuda"
