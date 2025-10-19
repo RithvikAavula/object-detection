@@ -8,7 +8,8 @@ import SavedFrames from './SavedFrames';
 import Controls from './Controls';
 import './Dashboard.css';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = `${API_BASE}/api`;
 
 function Dashboard() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -28,7 +29,7 @@ function Dashboard() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const response = await axios.get(`${API_BASE}/metrics`);
+        const response = await axios.get(`${API_URL}/metrics`);
         setMetrics(response.data);
       } catch (error) {
         console.error('Error fetching metrics:', error);
@@ -41,7 +42,7 @@ function Dashboard() {
   // Fetch saved frames
   const fetchSavedFrames = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_BASE}/saved-frames`);
+      const response = await axios.get(`${API_URL}/saved-frames`);
       setSavedFrames(response.data.frames);
     } catch (error) {
       console.error('Error fetching saved frames:', error);
@@ -58,7 +59,7 @@ function Dashboard() {
   const handleStart = async () => {
     setLoading(true);
     try {
-      await axios.post(`${API_BASE}/start`);
+      await axios.post(`${API_URL}/start`);
       setIsDetecting(true);
     } catch (error) {
       console.error('Error starting detection:', error);
@@ -72,7 +73,7 @@ function Dashboard() {
   const handleStop = async () => {
     setLoading(true);
     try {
-      await axios.post(`${API_BASE}/stop`);
+      await axios.post(`${API_URL}/stop`);
       setIsDetecting(false);
     } catch (error) {
       console.error('Error stopping detection:', error);
@@ -85,7 +86,7 @@ function Dashboard() {
   // Save frame
   const handleSaveFrame = async () => {
     try {
-      await axios.post(`${API_BASE}/save-frame`);
+      await axios.post(`${API_URL}/save-frame`);
       fetchSavedFrames();
     } catch (error) {
       console.error('Error saving frame:', error);
@@ -96,7 +97,7 @@ function Dashboard() {
   // Update confidence
   const handleConfidenceChange = async (newConfidence) => {
     try {
-      await axios.post(`${API_BASE}/confidence`, { confidence: newConfidence });
+      await axios.post(`${API_URL}/confidence`, { confidence: newConfidence });
       setMetrics(prev => ({ ...prev, confidence: newConfidence }));
     } catch (error) {
       console.error('Error updating confidence:', error);
@@ -106,7 +107,7 @@ function Dashboard() {
   // Delete frame
   const handleDeleteFrame = async (filename) => {
     try {
-      await axios.delete(`${API_BASE}/delete-frame/${filename}`);
+      await axios.delete(`${API_URL}/delete-frame/${filename}`);
       fetchSavedFrames();
     } catch (error) {
       console.error('Error deleting frame:', error);

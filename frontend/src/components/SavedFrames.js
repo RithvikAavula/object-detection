@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaImages, FaTrash, FaDownload, FaTimes, FaSync } from 'react-icons/fa';
 import './SavedFrames.css';
 
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 function SavedFrames({ frames, onDelete, onRefresh }) {
   const [selectedFrame, setSelectedFrame] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
@@ -18,7 +20,7 @@ function SavedFrames({ frames, onDelete, onRefresh }) {
 
   const handleDownload = (frame) => {
     const link = document.createElement('a');
-    link.href = `http://localhost:5000${frame.url}`;
+    link.href = `${API_BASE}${frame.url}`;
     link.download = frame.filename;
     link.click();
   };
@@ -67,7 +69,7 @@ function SavedFrames({ frames, onDelete, onRefresh }) {
               >
                 <div className="frame-image-container">
                   <img
-                    src={`http://localhost:5000${frame.url}`}
+                    src={`${API_BASE}${frame.url}`}
                     alt={frame.filename}
                     className="frame-image"
                   />
@@ -139,7 +141,7 @@ function SavedFrames({ frames, onDelete, onRefresh }) {
               </motion.button>
 
               <img
-                src={`http://localhost:5000${selectedFrame.url}`}
+                src={`${API_BASE}${selectedFrame.url}`}
                 alt={selectedFrame.filename}
                 className="lightbox-image"
               />

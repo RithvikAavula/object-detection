@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { FaVideo, FaVideoSlash } from 'react-icons/fa';
 import './LiveFeed.css';
 
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 function LiveFeed({ isDetecting }) {
   const imgRef = useRef(null);
 
@@ -51,7 +53,7 @@ function LiveFeed({ isDetecting }) {
         {isDetecting ? (
           <motion.img
             ref={imgRef}
-            src={`http://localhost:5000/api/video-feed?t=${Date.now()}`}
+            src={`${API_BASE}/api/video-feed?t=${Date.now()}`}
             alt="Live Detection Feed"
             className="feed-video"
             initial={{ opacity: 0 }}
