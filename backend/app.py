@@ -36,12 +36,16 @@ SAVED_FRAMES_DIR.mkdir(exist_ok=True)
 
 # ---------- App & logging ----------
 app = Flask(__name__)
-CORS(app, origins=[
-    "http://localhost:3000",
-    "http://localhost:5000",
-    "https://object-detection-2-9oo8.onrender.com",
-    "https://object-detection-rirh.onrender.com"
-])
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "https://object-detection-2-9oo8.onrender.com",
+            "https://object-detection-rirh.onrender.com"
+        ]
+    }
+})
 logging.basicConfig(level=logging.INFO)
 
 # ---------- Global state ----------
