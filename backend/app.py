@@ -627,6 +627,10 @@ def api_process_frame():
         current_metrics["detections"] = dict(detections_count)
         current_metrics["frames_processed"] += 1
         
+        # Save processed frame for potential save-frame API
+        with frame_lock:
+            current_frame = out_frame
+        
         # Encode processed frame as JPEG
         ret, buffer = cv2.imencode('.jpg', out_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
         if not ret:

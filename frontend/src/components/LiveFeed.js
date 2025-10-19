@@ -13,6 +13,7 @@ function LiveFeed({ isDetecting }) {
   const streamRef = useRef(null);
   const [cameraError, setCameraError] = useState(null);
   const [processedFrame, setProcessedFrame] = useState(null);
+  const [cameraReady, setCameraReady] = useState(false);
 
   // Request camera access from browser
   useEffect(() => {
@@ -29,18 +30,24 @@ function LiveFeed({ isDetecting }) {
 
   // Send frames to backend for processing
   useEffect(() => {
-    if (USE_BROWSER_CAMERA && isDetecting && videoRef.current) {
+    if (USE_BROWSER_CAMERA && isDetecting && cameraReady && videoRef.current) {
+      console.log('Starting frame capture interval...');
       const interval = setInterval(() => {
         captureAndSendFrame();
       }, 100); // Send 10 frames per second
 
-      return () => clearInterval(interval);
+      return () => {
+        console.log('Stopping frame capture interval');
+        clearInterval(interval);
+      };
     }
-  }, [isDetecting]);
+  }, [isDetecting, cameraReady]);
 
   const startBrowserCamera = async () => {
     try {
       console.log('Requesting camera access...');
+      setCameraReady(false);
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 640 },
@@ -52,17 +59,28 @@ function LiveFeed({ isDetecting }) {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        
+        // Wait for video to actually start playing
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play().then(() => {
+            console.log('✅ Camera access granted and video playing!');
+            setCameraReady(true);
+            setCameraError(null);
+          }).catch(err => {
+            console.error('Error playing video:', err);
+            setCameraError(`Playback Error: ${err.message}`);
+          });
+        };
       }
-      console.log('✅ Camera access granted!');
-      setCameraError(null);
     } catch (err) {
       console.error('Camera access denied:', err);
       setCameraError(`Camera Error: ${err.message}`);
+      setCameraReady(false);
     }
   };
 
   const stopBrowserCamera = () => {
+    setCameraReady(false);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -70,25 +88,44 @@ function LiveFeed({ isDetecting }) {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    setProcessedFrame(null);
   };
 
   const captureAndSendFrame = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      console.warn('Video or canvas not ready');
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    
+    // Check if video is actually playing
+    if (video.readyState < 2) {
+      console.warn('Video not ready, readyState:', video.readyState);
+      return;
+    }
+    
     const ctx = canvas.getContext('2d');
 
     // Set canvas size to match video
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
 
+    if (canvas.width === 0 || canvas.height === 0) {
+      console.warn('Invalid canvas dimensions');
+      return;
+    }
+
     // Draw current video frame to canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     // Convert canvas to blob
     canvas.toBlob(async (blob) => {
-      if (!blob) return;
+      if (!blob) {
+        console.warn('Failed to create blob');
+        return;
+      }
 
       try {
         // Send frame to backend
@@ -103,7 +140,16 @@ function LiveFeed({ isDetecting }) {
         if (response.ok) {
           const blob = await response.blob();
           const url = URL.createObjectURL(blob);
+          
+          // Clean up old URL to prevent memory leaks
+          if (processedFrame) {
+            URL.revokeObjectURL(processedFrame);
+          }
+          
           setProcessedFrame(url);
+          console.log('✅ Frame processed successfully');
+        } else {
+          console.error('Backend error:', response.status, response.statusText);
         }
       } catch (err) {
         console.error('Error sending frame:', err);
