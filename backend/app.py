@@ -43,7 +43,12 @@ CORS(app, resources={
             "http://localhost:5000",
             "https://object-detection-2-9oo8.onrender.com",
             "https://object-detection-rirh.onrender.com"
-        ]
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": False,
+        "max_age": 3600
     }
 })
 logging.basicConfig(level=logging.INFO)
@@ -605,6 +610,9 @@ def api_process_frame():
     """
     global current_metrics, fps_queue, current_frame, frame_lock
     
+    # Log request received
+    logging.info(f"Received process-frame request from {request.remote_addr}")
+    
     # Track FPS for browser camera mode
     start_time = time.time()
     
@@ -755,6 +763,26 @@ def root():
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+
+@app.route("/api/debug", methods=["GET"])
+def debug_info():
+    """Debug endpoint to check backend status"""
+    return jsonify({
+        "status": "online",
+        "model_loaded": model is not None,
+        "model_name": "yolov8m.pt" if model else None,
+        "device": device,
+        "detection_active": detection_active,
+        "current_metrics": current_metrics,
+        "cors_origins": [
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "https://object-detection-2-9oo8.onrender.com",
+            "https://object-detection-rirh.onrender.com"
+        ],
+        "saved_frames_dir": str(SAVED_FRAMES_DIR),
+        "timestamp": datetime.now().isoformat()
+    })
 
 # ---------- Cleanup on exit ----------
 def shutdown():
