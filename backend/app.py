@@ -545,20 +545,56 @@ def video_feed():
 
 @app.route("/api/save-frame", methods=["POST"])
 def api_save_frame():
-    global current_metrics
+    global current_metrics, current_frame, frame_lock
+    
+    # Check if frame is available
     if current_frame is None:
-        return jsonify({"error": "No frame available"}), 400
+        logging.warning("Save frame requested but current_frame is None")
+        return jsonify({
+            "error": "No frame available",
+            "details": "Please wait for detection to process at least one frame before saving."
+        }), 400
+    
     try:
+        # Ensure saved_frames directory exists
+        SAVED_FRAMES_DIR.mkdir(exist_ok=True)
+        
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         fname = f"detection_{ts}_f{current_metrics['frames_processed']}.jpg"
         fpath = SAVED_FRAMES_DIR / fname
+        
+        # Save frame with lock
         with frame_lock:
-            cv2.imwrite(str(fpath), current_frame)
+            if current_frame is None:  # Double-check inside lock
+                return jsonify({"error": "Frame became unavailable"}), 400
+            
+            success = cv2.imwrite(str(fpath), current_frame)
+            if not success:
+                logging.error(f"cv2.imwrite failed for path: {fpath}")
+                return jsonify({"error": "Failed to write image file"}), 500
+        
+        # Verify file was created
+        if not fpath.exists():
+            logging.error(f"File not found after write: {fpath}")
+            return jsonify({"error": "File was not created"}), 500
+        
         current_metrics["saved_count"] += 1
-        return jsonify({"status": "saved", "filename": fname})
+        logging.info(f"Frame saved successfully: {fname} (size: {fpath.stat().st_size} bytes)")
+        
+        return jsonify({
+            "status": "saved",
+            "filename": fname,
+            "path": str(fpath),
+            "size": fpath.stat().st_size
+        })
+        
     except Exception as e:
-        logging.exception("Failed to save frame")
-        return jsonify({"error": str(e)}), 500
+        logging.exception(f"Failed to save frame: {type(e).__name__}: {str(e)}")
+        return jsonify({
+            "error": "Failed to save frame",
+            "details": str(e),
+            "type": type(e).__name__
+        }), 500
 
 @app.route("/api/process-frame", methods=["POST"])
 def api_process_frame():

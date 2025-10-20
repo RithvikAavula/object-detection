@@ -115,11 +115,29 @@ function Dashboard() {
   // Save frame
   const handleSaveFrame = async () => {
     try {
-      await axios.post(`${API_URL}/save-frame`);
+      const response = await axios.post(`${API_URL}/save-frame`);
+      console.log('Frame saved successfully:', response.data);
       fetchSavedFrames();
+      
+      // Show success message
+      if (response.data.filename) {
+        alert(`✅ Frame saved: ${response.data.filename}`);
+      }
     } catch (error) {
       console.error('Error saving frame:', error);
-      alert('Failed to save frame');
+      
+      // Show detailed error message
+      let errorMsg = 'Failed to save frame';
+      if (error.response?.data?.error) {
+        errorMsg = error.response.data.error;
+        if (error.response.data.details) {
+          errorMsg += '\n\n' + error.response.data.details;
+        }
+      } else if (error.message) {
+        errorMsg += '\n\n' + error.message;
+      }
+      
+      alert(errorMsg);
     }
   };
 
