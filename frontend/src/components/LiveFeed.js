@@ -45,8 +45,9 @@ function LiveFeed({ isDetecting }) {
 
   const startBrowserCamera = async () => {
     try {
-      console.log('Requesting camera access...');
+      console.log('🎥 Requesting camera access...');
       setCameraReady(false);
+      setProcessedFrame(null);
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -56,24 +57,34 @@ function LiveFeed({ isDetecting }) {
         }
       });
       
+      console.log('✅ Camera stream obtained:', stream.getVideoTracks()[0].label);
       streamRef.current = stream;
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        console.log('📹 Video srcObject set');
         
         // Wait for video to actually start playing
         videoRef.current.onloadedmetadata = () => {
+          console.log('📊 Video metadata loaded:', {
+            width: videoRef.current.videoWidth,
+            height: videoRef.current.videoHeight
+          });
+          
           videoRef.current.play().then(() => {
-            console.log('✅ Camera access granted and video playing!');
+            console.log('▶️ Video playing, setting cameraReady=true');
             setCameraReady(true);
             setCameraError(null);
           }).catch(err => {
-            console.error('Error playing video:', err);
+            console.error('❌ Error playing video:', err);
             setCameraError(`Playback Error: ${err.message}`);
           });
         };
+      } else {
+        console.warn('⚠️ videoRef.current is null!');
       }
     } catch (err) {
-      console.error('Camera access denied:', err);
+      console.error('❌ Camera access denied:', err);
       setCameraError(`Camera Error: ${err.message}`);
       setCameraReady(false);
     }
@@ -181,6 +192,30 @@ function LiveFeed({ isDetecting }) {
           {isDetecting ? <FaVideo className="icon-pulse" /> : <FaVideoSlash />}
           <span>Live Feed {USE_BROWSER_CAMERA && '(Browser Camera)'}</span>
         </h2>
+        {isDetecting && USE_BROWSER_CAMERA && (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <small style={{ 
+              padding: '4px 8px', 
+              background: cameraReady ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+              border: `1px solid ${cameraReady ? 'rgba(34, 197, 94, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`,
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: cameraReady ? '#22c55e' : '#eab308'
+            }}>
+              {cameraReady ? '📹 Camera Ready' : '⏳ Starting...'}
+            </small>
+            <small style={{ 
+              padding: '4px 8px', 
+              background: processedFrame ? 'rgba(59, 130, 246, 0.2)' : 'rgba(156, 163, 175, 0.2)',
+              border: `1px solid ${processedFrame ? 'rgba(59, 130, 246, 0.3)' : 'rgba(156, 163, 175, 0.3)'}`,
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: processedFrame ? '#3b82f6' : '#9ca3af'
+            }}>
+              {processedFrame ? '🎯 Detecting' : '⏸️ Processing'}
+            </small>
+          </div>
+        )}
         {isDetecting && (
           <motion.span
             className="recording-badge"
@@ -209,12 +244,26 @@ function LiveFeed({ isDetecting }) {
           USE_BROWSER_CAMERA ? (
             // WebRTC Mode: Show browser camera with processed overlay
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {/* Hidden canvas for frame processing */}
+              {/* Canvas for frame processing (hidden) */}
               <canvas ref={canvasRef} style={{ display: 'none' }} />
               
-              {/* Display processed frame from backend OR live camera feed */}
-              {processedFrame ? (
-                // Show processed frame with detections
+              {/* Live camera feed - always rendered, controlled by display */}
+              <video
+                ref={videoRef}
+                className="feed-video"
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  display: processedFrame ? 'none' : (cameraReady ? 'block' : 'none')
+                }}
+              />
+              
+              {/* Processed frame overlay */}
+              {processedFrame && (
                 <motion.img
                   src={processedFrame}
                   alt="Processed Detection Feed"
@@ -223,27 +272,18 @@ function LiveFeed({ isDetecting }) {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3 }}
                   style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
                     width: '100%',
                     height: '100%',
                     objectFit: 'contain'
                   }}
                 />
-              ) : cameraReady ? (
-                // Show live camera feed while waiting for processed frames
-                <video
-                  ref={videoRef}
-                  className="feed-video"
-                  autoPlay
-                  playsInline
-                  muted
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain'
-                  }}
-                />
-              ) : (
-                // Show loading state
+              )}
+              
+              {/* Loading state */}
+              {!cameraReady && !processedFrame && (
                 <div className="feed-placeholder">
                   <motion.div
                     className="placeholder-icon"
