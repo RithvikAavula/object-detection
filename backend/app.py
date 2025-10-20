@@ -567,10 +567,9 @@ def api_process_frame():
     This enables WebRTC-style detection where the browser captures the camera
     and sends frames to the backend for processing.
     """
-    global current_metrics
+    global current_metrics, fps_queue, current_frame, frame_lock
     
     # Track FPS for browser camera mode
-    import time
     start_time = time.time()
     
     try:
@@ -650,8 +649,8 @@ def api_process_frame():
                     f"FPS: {current_metrics['fps']}, "
                     f"Objects: {current_metrics['object_count']}")
         
-        # Encode processed frame as JPEG
-        ret, buffer = cv2.imencode('.jpg', out_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        # Encode processed frame as JPEG with lower quality for faster transmission
+        ret, buffer = cv2.imencode('.jpg', out_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         if not ret:
             return jsonify({"error": "Failed to encode frame"}), 500
         

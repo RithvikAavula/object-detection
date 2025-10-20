@@ -14,6 +14,7 @@ function LiveFeed({ isDetecting }) {
   const [cameraError, setCameraError] = useState(null);
   const [processedFrame, setProcessedFrame] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const processingRef = useRef(false); // Track if frame is being processed
 
   // Request camera access from browser
   useEffect(() => {
@@ -34,7 +35,7 @@ function LiveFeed({ isDetecting }) {
       console.log('Starting frame capture interval...');
       const interval = setInterval(() => {
         captureAndSendFrame();
-      }, 100); // Send 10 frames per second
+      }, 250); // Send 4 frames per second (reduced to prevent lag)
 
       return () => {
         console.log('Stopping frame capture interval');
@@ -103,6 +104,12 @@ function LiveFeed({ isDetecting }) {
   };
 
   const captureAndSendFrame = async () => {
+    // Skip if already processing a frame
+    if (processingRef.current) {
+      console.log('⏭️ Skipping frame - already processing');
+      return;
+    }
+
     if (!videoRef.current || !canvasRef.current) {
       console.warn('Video or canvas not ready');
       return;
@@ -117,6 +124,8 @@ function LiveFeed({ isDetecting }) {
       return;
     }
     
+    processingRef.current = true; // Mark as processing
+    
     const ctx = canvas.getContext('2d');
 
     // Set canvas size to match video
@@ -125,6 +134,7 @@ function LiveFeed({ isDetecting }) {
 
     if (canvas.width === 0 || canvas.height === 0) {
       console.warn('Invalid canvas dimensions');
+      processingRef.current = false;
       return;
     }
 
@@ -135,6 +145,7 @@ function LiveFeed({ isDetecting }) {
     canvas.toBlob(async (blob) => {
       if (!blob) {
         console.warn('Failed to create blob');
+        processingRef.current = false;
         return;
       }
 
@@ -164,8 +175,10 @@ function LiveFeed({ isDetecting }) {
         }
       } catch (err) {
         console.error('Error sending frame:', err);
+      } finally {
+        processingRef.current = false; // Mark as done
       }
-    }, 'image/jpeg', 0.8);
+    }, 'image/jpeg', 0.7); // Reduced quality for faster upload
   };
 
   // Fallback to original server camera method
