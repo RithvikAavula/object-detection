@@ -37,13 +37,10 @@ SAVED_FRAMES_DIR.mkdir(exist_ok=True)
 # ---------- App & logging ----------
 app = Flask(__name__)
 CORS(app, resources={
-    r"/api/*": {
-        "origins": [
-            "http://localhost:3000",
-            "http://localhost:5000",
-            "https://object-detection-2-9oo8.onrender.com",
-            "https://object-detection-rirh.onrender.com"
-        ],
+    r"/*": {
+        # Allow all origins for deployed app to ensure preflight headers are always returned.
+        # This is intentionally permissive to avoid CORS blocking in Render; can be tightened later.
+        "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Content-Type"],
