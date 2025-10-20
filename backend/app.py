@@ -739,6 +739,13 @@ def api_process_frame():
 @app.route("/api/process-frame", methods=["OPTIONS"])
 def api_process_frame_options():
     """Respond to CORS preflight requests for process-frame."""
+    # Log preflight for visibility in deployed logs
+    try:
+        origin = request.headers.get('Origin')
+        logging.info(f"Received preflight OPTIONS for /api/process-frame from Origin: {origin}")
+    except Exception:
+        logging.info("Received preflight OPTIONS for /api/process-frame (origin unavailable)")
+
     # flask-cors should handle this, but provide an explicit safe response for deployments
     resp = Response(status=204)
     resp.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
