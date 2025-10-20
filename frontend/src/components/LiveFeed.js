@@ -15,6 +15,8 @@ function LiveFeed({ isDetecting }) {
   const [processedFrame, setProcessedFrame] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const processingRef = useRef(false); // Track if frame is being processed
+  const [framesSent, setFramesSent] = useState(0); // Track frames sent
+  const [framesProcessed, setFramesProcessed] = useState(0); // Track frames processed
 
   // Request camera access from browser
   useEffect(() => {
@@ -93,6 +95,8 @@ function LiveFeed({ isDetecting }) {
 
   const stopBrowserCamera = () => {
     setCameraReady(false);
+    setFramesSent(0);
+    setFramesProcessed(0);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -154,6 +158,9 @@ function LiveFeed({ isDetecting }) {
         const formData = new FormData();
         formData.append('frame', blob, 'frame.jpg');
 
+        console.log(`📤 Sending frame ${framesSent + 1} to backend...`);
+        setFramesSent(prev => prev + 1);
+
         const response = await fetch(`${API_BASE}/api/process-frame`, {
           method: 'POST',
           body: formData,
@@ -169,12 +176,17 @@ function LiveFeed({ isDetecting }) {
           }
           
           setProcessedFrame(url);
-          console.log('✅ Frame processed successfully');
+          setFramesProcessed(prev => prev + 1);
+          console.log(`✅ Frame ${framesProcessed + 1} processed successfully`);
         } else {
-          console.error('Backend error:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.error('❌ Backend error:', response.status, response.statusText);
+          console.error('❌ Error details:', errorText);
         }
       } catch (err) {
-        console.error('Error sending frame:', err);
+        console.error('❌ Error sending frame:', err);
+        console.error('❌ Error type:', err.name);
+        console.error('❌ Error message:', err.message);
       } finally {
         processingRef.current = false; // Mark as done
       }
@@ -206,13 +218,40 @@ function LiveFeed({ isDetecting }) {
           <span>Live Feed {USE_BROWSER_CAMERA && '(Browser Camera)'}</span>
         </h2>
         {isDetecting && USE_BROWSER_CAMERA && (
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <small style={{ 
               padding: '4px 8px', 
               background: cameraReady ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
               border: `1px solid ${cameraReady ? 'rgba(34, 197, 94, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`,
               borderRadius: '4px',
               fontSize: '11px',
+              color: cameraReady ? '#22c55e' : '#eab308'
+            }}>
+              {cameraReady ? '📹 Camera Ready' : '⏳ Starting...'}
+            </small>
+            <small style={{ 
+              padding: '4px 8px', 
+              background: framesSent > 0 ? 'rgba(59, 130, 246, 0.2)' : 'rgba(156, 163, 175, 0.2)',
+              border: `1px solid ${framesSent > 0 ? 'rgba(59, 130, 246, 0.3)' : 'rgba(156, 163, 175, 0.3)'}`,
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: framesSent > 0 ? '#3b82f6' : '#9ca3af'
+            }}>
+              📤 Sent: {framesSent}
+            </small>
+            <small style={{ 
+              padding: '4px 8px', 
+              background: framesProcessed > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(156, 163, 175, 0.2)',
+              border: `1px solid ${framesProcessed > 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(156, 163, 175, 0.3)'}`,
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: framesProcessed > 0 ? '#10b981' : '#9ca3af'
+            }}>
+              ✅ Processed: {framesProcessed}
+            </small>
+            <small style={{ 
+              padding: '4px 8px', 
+              background: processedFrame ? 'rgba(59, 130, 246, 0.2)' : 'rgba(156, 163, 175, 0.2)',
               color: cameraReady ? '#22c55e' : '#eab308'
             }}>
               {cameraReady ? '📹 Camera Ready' : '⏳ Starting...'}
