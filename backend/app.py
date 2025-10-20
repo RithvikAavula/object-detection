@@ -167,36 +167,55 @@ def load_model(weights_path: str = "yolov8m.pt", prefer_gpu: bool = True):
     global model, device
     try:
         logging.info("Loading YOLO model...")
-        
+
         # Add safe globals for PyTorch 2.6+ compatibility
-        import torch.serialization
         try:
+            import torch.serialization
             # Allow ultralytics classes for torch.load
             from ultralytics.nn.tasks import DetectionModel
             torch.serialization.add_safe_globals([DetectionModel])
         except Exception as safe_global_err:
             logging.warning(f"Could not add safe globals (non-critical): {safe_global_err}")
-        
+
+        # Determine weights to use: prefer env override, otherwise pick a smaller model on CPU
+        env_weights = os.environ.get('MODEL_WEIGHTS')
+        chosen_weights = env_weights if env_weights else weights_path
+        if not env_weights:
+            # If no GPU available and not explicitly set, use yolov8n (nano) for faster CPU inference
+            try:
+                import torch as _torch
+                if not _torch.cuda.is_available() and weights_path == "yolov8m.pt":
+                    chosen_weights = "yolov8n.pt"
+            except Exception:
+                # conservative fallback
+                pass
+
         # Try loading model
         try:
-            model = YOLO(weights_path)
+            model = YOLO(chosen_weights)
         except Exception as load_err:
             # Fallback: Try downloading fresh weights if local file fails
-            logging.warning(f"Failed to load local weights, trying to download: {load_err}")
-            model = YOLO("yolov8m.pt")  # This will auto-download if needed
-        
+            logging.warning(f"Failed to load local weights ({chosen_weights}), trying to download: {load_err}")
+            # Try to fallback to nano model for reliability
+            try:
+                model = YOLO("yolov8n.pt")
+            except Exception:
+                model = YOLO("yolov8m.pt")
+
         # choose device
         if prefer_gpu and torch.cuda.is_available():
             device = "cuda"
         else:
             device = "cpu"
+
         # move model to device if supported
         try:
             model.to(device)
         except Exception:
             # some ultralytics versions handle device in predict call; ignore if .to not supported
             pass
-        logging.info(f"Model loaded ({weights_path}) on device: {device}")
+
+        logging.info(f"Model loaded ({chosen_weights}) on device: {device}")
         return True
     except Exception as e:
         logging.exception("Failed to load model")
