@@ -654,6 +654,12 @@ def api_process_frame():
     
     # Log request received
     logging.info(f"Received process-frame request from {request.remote_addr}")
+    # Append to debug log file for postmortem in Render
+    try:
+        with open(SAVED_FRAMES_DIR / 'debug_requests.log', 'a') as lf:
+            lf.write(f"{datetime.now().isoformat()} - Received process-frame from {request.remote_addr}\n")
+    except Exception:
+        pass
     
     # Track FPS for browser camera mode
     start_time = time.time()
@@ -668,14 +674,32 @@ def api_process_frame():
             return jsonify({"error": "No frame provided"}), 400
         
         file = request.files['frame']
+        logging.info("Read uploaded file object")
+        try:
+            with open(SAVED_FRAMES_DIR / f"last_upload_{int(time.time())}.jpg", 'wb') as f:
+                f.write(file.read())
+            # re-seek file for decoding
+            file.stream.seek(0)
+        except Exception:
+            # ignore file save failures
+            file.stream.seek(0)
         
         # Read image data
+        # Read image bytes for decoding
         file_bytes = np.frombuffer(file.read(), np.uint8)
+        logging.info(f"Uploaded frame bytes length: {len(file_bytes)}")
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         
         if frame is None:
             return jsonify({"error": "Invalid image data"}), 400
         
+        # PROCESS: mark time before predict
+        logging.info("Starting prediction step")
+        try:
+            t_predict_start = time.time()
+        except Exception:
+            t_predict_start = None
+
         # Process frame with YOLO
         conf_thresh = current_metrics.get("confidence", 0.15)
 
@@ -702,6 +726,14 @@ def api_process_frame():
         except TypeError:
             # Some ultralytics versions have different argument names - fallback
             results = model.predict(small_frame, conf=conf_thresh, device=device, verbose=False)
+        finally:
+            try:
+                t_predict_end = time.time()
+                logging.info(f"Prediction took: {round(t_predict_end - (t_predict_start or t_predict_end), 3)}s")
+                with open(SAVED_FRAMES_DIR / 'debug_requests.log', 'a') as lf:
+                    lf.write(f"{datetime.now().isoformat()} - prediction_time: {round(t_predict_end - (t_predict_start or t_predict_end),3)}\n")
+            except Exception:
+                pass
 
         # Draw detections on small_frame (returned image will be smaller but faster)
         out_frame = small_frame.copy()
