@@ -53,6 +53,32 @@ CORS(app, resources={
 })
 logging.basicConfig(level=logging.INFO)
 
+
+# Ensure CORS headers are present on every response (extra safety for deployed envs)
+@app.after_request
+def add_cors_headers(response):
+    try:
+        origin = request.headers.get('Origin')
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "https://object-detection-2-9oo8.onrender.com",
+            "https://object-detection-rirh.onrender.com"
+        ]
+        if origin and origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+        else:
+            # allow all for non-browser tools or if origin missing
+            response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Expose-Headers'] = 'Content-Type'
+        response.headers['Access-Control-Max-Age'] = '3600'
+    except Exception:
+        # don't fail the request because of header logic
+        pass
+    return response
+
 # ---------- Global state ----------
 camera = None
 camera_index = DEFAULT_CAMERA_INDEX
@@ -708,6 +734,18 @@ def api_process_frame():
     except Exception as e:
         logging.exception("Error processing frame")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/process-frame", methods=["OPTIONS"])
+def api_process_frame_options():
+    """Respond to CORS preflight requests for process-frame."""
+    # flask-cors should handle this, but provide an explicit safe response for deployments
+    resp = Response(status=204)
+    resp.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+    resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    resp.headers['Access-Control-Max-Age'] = '3600'
+    return resp
 
 @app.route("/api/saved-frames", methods=["GET"])
 def api_saved_frames():
