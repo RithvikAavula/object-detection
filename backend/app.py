@@ -659,10 +659,28 @@ def api_process_frame():
         
         # Process frame with YOLO
         conf_thresh = current_metrics.get("confidence", 0.15)
-        results = model.predict(frame, conf=conf_thresh, verbose=False)
-        
-        # Draw detections on frame
-        out_frame = frame.copy()
+
+        # Downscale frame to speed up CPU inference on deployed servers.
+        # We'll run detection on a smaller copy and return the annotated smaller image.
+        try:
+            target_width = 320
+            h, w = frame.shape[:2]
+            if w > target_width:
+                scale = target_width / float(w)
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                small_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            else:
+                small_frame = frame.copy()
+        except Exception as resize_err:
+            logging.warning(f"Failed to resize frame for faster inference: {resize_err}")
+            small_frame = frame.copy()
+
+        # Run prediction on the smaller frame to reduce inference time
+        results = model.predict(small_frame, conf=conf_thresh, verbose=False)
+
+        # Draw detections on small_frame (returned image will be smaller but faster)
+        out_frame = small_frame.copy()
         detections_count = defaultdict(int)
         
         for result in results:
