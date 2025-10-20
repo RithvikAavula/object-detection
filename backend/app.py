@@ -569,6 +569,10 @@ def api_process_frame():
     """
     global current_metrics
     
+    # Track FPS for browser camera mode
+    import time
+    start_time = time.time()
+    
     try:
         # Check if model is loaded
         if model is None:
@@ -622,14 +626,29 @@ def api_process_frame():
                 cv2.putText(out_frame, label, (x1 + 3, y1 - 5),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
         
+        # Calculate FPS
+        processing_time = time.time() - start_time
+        fps = 1.0 / processing_time if processing_time > 0 else 0
+        fps_queue.append(fps)
+        avg_fps = sum(fps_queue) / len(fps_queue) if len(fps_queue) else fps
+        
         # Update metrics
+        current_metrics["fps"] = round(avg_fps, 2)
         current_metrics["object_count"] = sum(detections_count.values())
         current_metrics["detections"] = dict(detections_count)
         current_metrics["frames_processed"] += 1
         
+        # Initialize session_start if not set
+        if current_metrics.get("session_start") is None:
+            current_metrics["session_start"] = datetime.now().isoformat()
+        
         # Save processed frame for potential save-frame API
         with frame_lock:
             current_frame = out_frame
+        
+        logging.info(f"Frame processed: {current_metrics['frames_processed']}, "
+                    f"FPS: {current_metrics['fps']}, "
+                    f"Objects: {current_metrics['object_count']}")
         
         # Encode processed frame as JPEG
         ret, buffer = cv2.imencode('.jpg', out_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
