@@ -696,7 +696,12 @@ def api_process_frame():
             small_frame = frame.copy()
 
         # Run prediction on the smaller frame to reduce inference time
-        results = model.predict(small_frame, conf=conf_thresh, verbose=False)
+        # Use explicit device, smaller img size and limited detections for speed on CPU
+        try:
+            results = model.predict(small_frame, conf=conf_thresh, device=device, imgsz=320, max_det=50, verbose=False)
+        except TypeError:
+            # Some ultralytics versions have different argument names - fallback
+            results = model.predict(small_frame, conf=conf_thresh, device=device, verbose=False)
 
         # Draw detections on small_frame (returned image will be smaller but faster)
         out_frame = small_frame.copy()
@@ -731,6 +736,10 @@ def api_process_frame():
         
         # Calculate FPS
         processing_time = time.time() - start_time
+        # Safety guard: if processing took too long, return 504 to avoid Render 502 proxy
+        if processing_time > 12.0:
+            logging.warning(f"Processing time too long: {processing_time}s - returning 504")
+            return jsonify({"error": "Processing timeout", "processing_time": processing_time}), 504
         fps = 1.0 / processing_time if processing_time > 0 else 0
         fps_queue.append(fps)
         avg_fps = sum(fps_queue) / len(fps_queue) if len(fps_queue) else fps
